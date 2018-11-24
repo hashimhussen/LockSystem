@@ -8,12 +8,23 @@ import MySQLdb
 from keypad import Keypad
 from RFIDReader import RFIDReader
 from LCD import LCD
+from DoorLatch import DoorLatch
+from Mock import Mock
+from random import randint
 
 class SmartDoorLockSystem:
 	def __init__(self):
-		self.rfidReader = RFIDReader()
-		self.keypad = Keypad()
-		self.lcd = LCD()
+		self.testing = True
+		if not self.testing:
+			self.rfidReader = RFIDReader()
+			self.keypad = Keypad()
+			self.lcd = LCD()
+			self.doorLatch = DoorLatch()
+		else:
+			self.rfidReader = Mock.RFIDReader()
+			self.keypad = Mock.Keypad()
+			self.lcd = Mock.LCD()
+			self.doorLatch = Mock.DoorLatch()	
 		self.dbName = "allowedtags.db"
 		self.correct_pin = "1234*"
 		self.entered_pin = ""
@@ -25,7 +36,15 @@ class SmartDoorLockSystem:
 	
 	def main(self):
 		while True:
-			tagID = self.rfidReader.grab_rfid_data()
+			if self.testing:
+				time.sleep(2)
+				tagID = self.rfidReader.grab_rfid_data()
+				time.sleep(1)
+				self.keypad.lastKeyPressed = str(randint(0,9))
+				if (len(self.entered_pin) == 4):
+					self.keypad.lastKeyPressed = '*'
+			else:
+				tagID = self.rfidReader.grab_rfid_data()
 			if (tagID[0] != ""):
 				#An RFID tag was scanned
 				conn = sqlite3.connect('/home/pi/Desktop/allowedtags.db')
@@ -33,7 +52,10 @@ class SmartDoorLockSystem:
 				c.execute('SELECT * FROM  allowedtags WHERE tagID=?',tagID)
 				if c.fetchone():
 					self.lcd.setText('ACCESS GRANTED', 1)
-					self.lcd.setText('Door Unlocked', 2)
+					#self.lcd.setText('Door Unlocked', 2)
+					self.doorLatch.unlockDoor()
+					time.sleep(2)
+					self.doorLatch.lockDoor()
 					#Log attempted access + time + RFID tag ID used
 				else:
 					self.lcd.setText('ACCESS DENIED', 2)
@@ -54,7 +76,10 @@ class SmartDoorLockSystem:
 							#Turn off Green LED
 							#lockDoor()
 							self.lcd.setText("Access Granted", 1)
-							self.lcd.setText('Door Unlocked', 1)
+							#self.lcd.setText('Door Unlocked', 1)
+							self.doorLatch.unlockDoor()
+							time.sleep(2)
+							self.doorLatch.lockDoor()
 							self.entered_pin = ""
 							self.keypad.lastKeyPressed = ""
 						else:

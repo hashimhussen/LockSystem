@@ -4,7 +4,7 @@ import RPi.GPIO as GPIO
 class DoorLatch(object):
 	def __init__(self):
 		GPIO.setmode(GPIO.BCM)
-		self.DOORLATCH = 14 #TODO - randomly chosen pin for now
+		self.DOORLATCH = 14
 		GPIO.setup(self.DOORLATCH, GPIO.OUT)
 		GPIO.output(self.DOORLATCH, False)
 
