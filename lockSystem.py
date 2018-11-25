@@ -1,4 +1,3 @@
-
 #!/usr/bin/python
 
 import serial, string, time, sqlite3
