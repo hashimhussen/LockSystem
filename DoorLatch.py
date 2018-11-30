@@ -1,5 +1,8 @@
-import time
+import time, serial
 import RPi.GPIO as GPIO
+
+UNLOCK = 0
+LOCK = 1
 
 class DoorLatch(object):
 	""" An Electromagnetic Door Latch """
@@ -7,17 +10,8 @@ class DoorLatch(object):
 	def __init__(self):
 		""" Door Latch Constructor """
 
-		#Set the GPIO mode
-		GPIO.setmode(GPIO.BCM)
-		
-		#Set the latch GPIO number (BCM numbering)
-		self.DOORLATCH = 14
-
-		#Set the latch GPIO as an output
-		GPIO.setup(self.DOORLATCH, GPIO.OUT)
-
-		#Initialize GPIO pin as FALSE, to ensure the latch is locked
-		GPIO.output(self.DOORLATCH, GPIO.LOW)
+		#Open a serial connection to the Arduino
+		self.ser = serial.Serial('/dev/ttyACM0', 9600,timeout = 0.2)
 
 	def unlockDoor(self):
 		"""
@@ -32,8 +26,11 @@ class DoorLatch(object):
 	    	None
 		"""
 
-		#Set the latch GPIO pin to HIGH
-		GPIO.output(self.DOORLATCH, GPIO.HIGH)
+		#Unlock the door
+		self.ser.write("%d"%UNLOCK)
+
+		#Update the door status
+		self.status = "UNLOCKED"
 
 	def lockDoor(self):
 		"""
@@ -48,7 +45,11 @@ class DoorLatch(object):
 	    	None
 		"""
 
-		#Set the latch GPIO pin to LOW
-		GPIO.output(self.DOORLATCH, GPIO.LOW)
+		#Lock the door
+		self.ser.write("%d"%LOCK)
+
+		#Update the door status
+		self.status = "LOCKED"
+
 
 

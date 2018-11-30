@@ -1,14 +1,15 @@
 #!/usr/bin/python
 
 #TODO Remove unused modules
-import serial, string, time, sqlite3
+import serial, string, time, sqlite3, socket
 from picamera import PiCamera
 from threading import Thread
-import MySQLdb
-from keypad import Keypad
+#import MySQLdb
+from Keypad import Keypad
 from RFIDReader import RFIDReader
 from LCD import LCD
 from DoorLatch import DoorLatch
+from UDP import UDP
 from Mock import Mock
 from random import randint
 
@@ -17,8 +18,8 @@ class SmartDoorLockSystem:
 	def __init__(self):
 		''' Initialization code '''
 		#TODO Remove Test Code
-		self.testing = True
-		
+		self.testing = False
+
 		#If not in debug mode, initialize real hardware
 		if not self.testing:
 			self.rfidReader = RFIDReader()
@@ -32,13 +33,28 @@ class SmartDoorLockSystem:
 			self.lcd = Mock.LCD()
 			self.doorLatch = Mock.DoorLatch()
 		
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		self.server_address = ('192.168.0.40', 8888)
+		self.socket.bind(self.server_address)
+		
 		self.dbName = "allowedtags.db"
 		self.correct_pin = "1234" #TODO get pin from database, instead of hardcoding
 		self.entered_pin = ""
-	
+
+
+	def listen_for_messages(self):
+		while True:
+			buf, address = self.socket.recvfrom(2048)
+			if len(buf):
+				UDP.processMessage(buf,self.doorLatch)
+
 	def main(self):
-		#print('\nWelcome to the Smart Home Lock System\n')
-		#print('Scan an active RFID card or enter the correct pin to unlock the door\n')
+		print('\nWelcome to the Smart Home Lock System\n')
+		print('Scan an active RFID card or enter the correct pin to unlock the door\n')
+
+		t = Thread(target=self.listen_for_messages)
+		t.daemon = True
+		t.start()
 		
 		#Infinite Loop
 		while True:
@@ -70,11 +86,9 @@ class SmartDoorLockSystem:
 				
 				#If the tagID was found in the database
 				if c.fetchone():
-					self.lcd.setText('ACCESS GRANTED', 1)
-					#self.lcd.setText('Door Unlocked', 2)
 					self.doorLatch.unlockDoor()
-					#TODO Change sleep time accordingly
-					time.sleep(2)
+					self.lcd.setText('ACCESS GRANTED', 1)
+					time.sleep(3)
 					self.doorLatch.lockDoor()
 				else:
 					self.lcd.setText('ACCESS DENIED', 2)
@@ -91,11 +105,11 @@ class SmartDoorLockSystem:
 					self.lcd.setText("Cancelled PIN \nEntry",2)
 					self.entered_pin = ""
 					self.keypad.lastKeyPressed = ""
-				
-				if (len(self.entered_pin) == len(self.correct_pin)):
-					if ((self.keypad.lastKeyPressed == '*')):
+			
+				if ((self.keypad.lastKeyPressed == '*')):			
+					if ((len(self.entered_pin)-1) == len(self.correct_pin)):	
 						#If the user entered the correct pin
-						if (self.entered_pin == self.correct_pin):
+						if (self.entered_pin[:-1] == self.correct_pin):
 							#TODO add LED Logic
 							self.lcd.setText("Access Granted", 1)
 							#self.lcd.setText('Door Unlocked', 1)
@@ -116,7 +130,7 @@ class SmartDoorLockSystem:
 						self.keypad.lastKeyPressed = ""
 						
 				#If the user entered pin is shorter than the correct pin
-				elif ((self.keypad.lastKeyPressed == '*')):
+				elif (len(self.entered_pin) > len(self.correct_pin)):
 					#Flash LED
 					self.lcd.setText("Invalid PIN \nFormat", 2)
 					self.entered_pin = ""

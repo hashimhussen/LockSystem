@@ -8,7 +8,7 @@ class Keypad(object):
 		"""Keypad Constructor"""
 
 		# Setup Keypad Layout
-		KEYPAD = 
+		KEYPAD = [
 		        ["1","2","3","A"],
 		        ["4","5","6","B"],
 		        ["7","8","9","C"],
