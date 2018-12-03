@@ -10,6 +10,7 @@ from RFIDReader import RFIDReader
 from LCD import LCD
 from DoorLatch import DoorLatch
 from UDP import UDP
+from Button import Button
 from Mock import Mock
 from random import randint
 
@@ -35,7 +36,7 @@ class SmartDoorLockSystem:
 			self.doorLatch = Mock.DoorLatch()
 		
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		self.server_address = ('192.168.0.40', 8888)
+		self.server_address = ('192.168.43.206', 8888)
 		self.socket.bind(self.server_address)
 		
 		self.dbName = "allowedtags.db"
@@ -106,9 +107,9 @@ class SmartDoorLockSystem:
 							#If the user entered the correct pin
 							if (self.entered_pin[:-1] == self.correct_pin):
 								#TODO add LED Logic
+								self.doorLatch.unlockDoor()
 								self.lcd.setText("Access Granted", 1)
 								#self.lcd.setText('Door Unlocked', 1)
-								self.doorLatch.unlockDoor()
 								time.sleep(2)
 								self.doorLatch.lockDoor()
 								self.entered_pin = ""
@@ -133,13 +134,28 @@ class SmartDoorLockSystem:
 	
 					#Clear the lastKeyPressed on every iteration
 					self.keypad.lastKeyPressed = ""
-				
+
+				#If the physical unlock button is pressed
+				if (Button.isUnlockButtonPressed() and (self.doorLatch.status == "LOCKED")):
+					self.doorLatch.unlockDoor()
+					self.lcd.setText("Access Granted", 1)
+					self.entered_pin = ""
+					self.keypad.lastKeyPressed = ""		
+
+				#If the physical lock button is pressed
+				if (Button.isLockButtonPressed() and (self.doorLatch.status == "UNLOCKED")):
+					self.doorLatch.lockDoor()
+					self.entered_pin = ""
+					self.keypad.lastKeyPressed = ""	
+
+
 				self.rfidReader.ser.flushInput()
 				self.busy = False
-
 
 
 if __name__ == '__main__':
 	#Initialize the Lock System and start running
 	lock = SmartDoorLockSystem()
 	lock.main()
+
+	GPIO.cleanup()
