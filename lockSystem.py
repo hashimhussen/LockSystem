@@ -19,6 +19,7 @@ class SmartDoorLockSystem:
 		''' Initialization code '''
 		#TODO Remove Test Code
 		self.testing = False
+		self.busy = False
 
 		#If not in debug mode, initialize real hardware
 		if not self.testing:
@@ -58,86 +59,83 @@ class SmartDoorLockSystem:
 		
 		#Infinite Loop
 		while True:
-			#TODO Remove test code
-			if self.testing:
-				time.sleep(2)
-				tagID = self.rfidReader.grab_rfid_data()
-				time.sleep(1)
-				#Generate a random number and simulate a button press
-				self.keypad.lastKeyPressed = str(randint(0,9))
-				if (len(self.entered_pin) == 4):
-					self.keypad.lastKeyPressed = '*'
-			else:
+			if (self.busy != True):
 				#Scan for an RFID card every iteration
 				tagID = self.rfidReader.grab_rfid_data()
 				
-			#If the tagID returned was nothing (no tag was scanned)
-			if (tagID[0] != ""): #tagID is a tuple
-				
-				#Connect to the database
-				#TODO Move to initialization code
-				conn = sqlite3.connect('/home/pi/Desktop/allowedtags.db')
-				c = conn.cursor()
-				
-				#Search the database for the scanned tagID
-				c.execute('SELECT * FROM  allowedtags WHERE tagID=?',tagID)
-				
-				#TODO Add logic for Master card
-				
-				#If the tagID was found in the database
-				if c.fetchone():
-					self.doorLatch.unlockDoor()
-					self.lcd.setText('ACCESS GRANTED', 1)
-					time.sleep(3)
-					self.doorLatch.lockDoor()
-				else:
-					self.lcd.setText('ACCESS DENIED', 2)
-					#TODO Log attempted access + time + RFID tag ID used
-			
-			#If a key was pressed on the keypad
-			if (self.keypad.lastKeyPressed != ""):
-				#Append the key to the pin being entered
-				self.entered_pin = self.entered_pin + self.keypad.lastKeyPressed
-				self.lcd.setText(self.entered_pin)
-				
-				#Cancel pin entry if the '#' button is pressed on the keypad
-				if ((self.keypad.lastKeyPressed == '#')):
-					self.lcd.setText("Cancelled PIN \nEntry",2)
-					self.entered_pin = ""
-					self.keypad.lastKeyPressed = ""
-			
-				if ((self.keypad.lastKeyPressed == '*')):			
-					if ((len(self.entered_pin)-1) == len(self.correct_pin)):	
-						#If the user entered the correct pin
-						if (self.entered_pin[:-1] == self.correct_pin):
-							#TODO add LED Logic
-							self.lcd.setText("Access Granted", 1)
-							#self.lcd.setText('Door Unlocked', 1)
-							self.doorLatch.unlockDoor()
-							time.sleep(2)
-							self.doorLatch.lockDoor()
-							self.entered_pin = ""
-							self.keypad.lastKeyPressed = ""
-						#If the user entered the incorrect pin
-						else:
-							self.lcd.setText("Access Denied", 2)
-							self.entered_pin = ""
-							self.keypad.lastKeyPressed = ""
-					#If the user entered pin is longer than the correct pin
+				#If the tagID returned was nothing (no tag was scanned)
+				if (tagID[0] != ""): #tagID is a tuple
+					
+					self.busy = True
+	
+					#Connect to the database
+					#TODO Move to initialization code
+					conn = sqlite3.connect('/home/pi/Desktop/allowedtags.db')
+					c = conn.cursor()
+					
+					#Search the database for the scanned tagID
+					c.execute('SELECT * FROM  allowedtags WHERE tagID=?',tagID)
+					
+					#TODO Add logic for Master card
+					
+					#If the tagID was found in the database
+					if c.fetchone():
+						self.doorLatch.unlockDoor()
+						self.lcd.setText('ACCESS GRANTED', 2)
+						time.sleep(3)
+						self.doorLatch.lockDoor()
 					else:
+						self.lcd.setText('ACCESS DENIED', 2)
+						#TODO Log attempted access + time + RFID tag ID used
+				
+				#If a key was pressed on the keypad
+				if (self.keypad.lastKeyPressed != ""):
+					self.busy = True
+					#Append the key to the pin being entered
+					self.entered_pin = self.entered_pin + self.keypad.lastKeyPressed
+					self.lcd.setText(self.entered_pin)
+					
+					#Cancel pin entry if the '#' button is pressed on the keypad
+					if ((self.keypad.lastKeyPressed == '#')):
+						self.lcd.setText("Cancelled PIN \nEntry",2)
+						self.entered_pin = ""
+						self.keypad.lastKeyPressed = ""
+				
+					if ((self.keypad.lastKeyPressed == '*')):			
+						if ((len(self.entered_pin)-1) == len(self.correct_pin)):	
+							#If the user entered the correct pin
+							if (self.entered_pin[:-1] == self.correct_pin):
+								#TODO add LED Logic
+								self.lcd.setText("Access Granted", 1)
+								#self.lcd.setText('Door Unlocked', 1)
+								self.doorLatch.unlockDoor()
+								time.sleep(2)
+								self.doorLatch.lockDoor()
+								self.entered_pin = ""
+								self.keypad.lastKeyPressed = ""
+							#If the user entered the incorrect pin
+							else:
+								self.lcd.setText("Access Denied", 2)
+								self.entered_pin = ""
+								self.keypad.lastKeyPressed = ""
+						#If the user entered pin is longer than the correct pin
+						else:
+							self.lcd.setText("Invalid PIN \nFormat", 2)
+							self.entered_pin = ""
+							self.keypad.lastKeyPressed = ""
+							
+					#If the user entered pin is shorter than the correct pin
+					elif (len(self.entered_pin) > len(self.correct_pin)):
+						#Flash LED
 						self.lcd.setText("Invalid PIN \nFormat", 2)
 						self.entered_pin = ""
 						self.keypad.lastKeyPressed = ""
-						
-				#If the user entered pin is shorter than the correct pin
-				elif (len(self.entered_pin) > len(self.correct_pin)):
-					#Flash LED
-					self.lcd.setText("Invalid PIN \nFormat", 2)
-					self.entered_pin = ""
+	
+					#Clear the lastKeyPressed on every iteration
 					self.keypad.lastKeyPressed = ""
-
-				#Clear the lastKeyPressed on every iteration
-				self.keypad.lastKeyPressed = ""
+				
+				self.rfidReader.ser.flushInput()
+				self.busy = False
 
 
 
