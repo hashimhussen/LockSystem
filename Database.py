@@ -53,6 +53,7 @@ class Database(object):
 
 		#Test if tag was really added
 		command = "SELECT * FROM validtags WHERE tag={} AND master=0".format(tagID)
+		self.cursor.execute(command)
 		tag = self.cursor.fetchone()
 		if tag:
 			return True
@@ -67,8 +68,14 @@ class Database(object):
 		
 		#Test if tag was really deleted
 		command = "SELECT * FROM validtags WHERE tag={} AND master=0".format(tagID)
+		self.cursor.execute(command)
 		tag = self.cursor.fetchone()
 		if tag:
 			return False
 		else:
 			return True
+
+	def logFailedAccess(self):
+		command = "INSERT INTO failed_access_times (time) VALUES (NOW())"
+		self.cursor.execute(command)
+		self.mydb.commit()

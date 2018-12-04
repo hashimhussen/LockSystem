@@ -17,14 +17,12 @@ class UDP(object):
 
 	@staticmethod
 	def processMessage(message, doorLatch):
-		print(message)
-		print(Messages.UNLOCK_DOOR.value)
 		if (int(message) == Messages.UNLOCK_DOOR.value):
 			return doorLatch.unlockDoor()
 		elif (int(message) == Messages.LOCK_DOOR.value):
 			return doorLatch.lockDoor()
 		elif (int(message) == Messages.GET_DOOR_STATUS.value):
-			return doorLatch.status
+			return updateDoorStatusInApp()
 		else:
 			return "Invalid message type received"
 

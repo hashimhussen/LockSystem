@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import RPi.GPIO as GPIO
 import time, socket
 from threading import Thread
 from Database import Database
@@ -38,6 +39,13 @@ class SmartDoorLockSystem:
 			if len(buf):
 				UDP.processMessage(buf,self.doorLatch)
 
+	def updateDoorStatusInApp(self):
+		host = "192.168.43.1"
+		port = 8888
+		target_address = (host,port)
+		data = self.doorLatch.status
+		self.socket.sendto(data.encode('utf-8'), target_address)
+
 	def main(self):
 		print('\nWelcome to the Smart Home Lock System\n')
 		print('Scan an active RFID card or enter the correct pin to unlock the door\n')
@@ -55,23 +63,30 @@ class SmartDoorLockSystem:
 				#If the tagID returned was nothing (no tag was scanned)
 				if (tagID[0] != ""): #tagID is a tuple
 					self.busy = True
-					print(tagID[0])
 
 					#TODO Add logic for Master card
 					if (self.database.isMasterTag(tagID[0])):
 						if (self.masterMode):
-							self.lcd.setText('MASTER MODE')
-							self.masterMode = False
-						else:
 							self.lcd.setText('')
+							self.masterMode = False
+							time.sleep(1)
+						else:
+							self.lcd.setText('MASTER MODE')
 							self.masterMode = True
+							time.sleep(1)
 					
 					else:
 						if (self.masterMode):
 							if (self.database.isTagInDatabase(tagID[0])):
-								removeTagFromDatabase(tagID[0])
+								if (self.database.removeTagFromDatabase(tagID[0])):
+									self.lcd.setText('TAG DEACTIVATED', 2)
+								else:
+									self.lcd.setText('FAILED TO \nDEACTIVATE TAG', 2)
 							else:
-								addTagToDatabase(tagID[0])
+								if (self.database.addTagToDatabase(tagID[0])):
+									self.lcd.setText('TAG ACTIVATED', 2)
+								else:
+									self.lcd.setText('FAILED TO \nACTIVATE TAG', 2)
 						else:
 							#If a NORMAL tag was scanned and was found in the database
 							if self.database.isTagInDatabase(tagID[0]):
@@ -81,6 +96,7 @@ class SmartDoorLockSystem:
 								self.doorLatch.lockDoor()
 							else:
 								self.lcd.setText('ACCESS DENIED', 2)
+								self.database.logFailedAccess()
 								#TODO Log attempted access + time + RFID tag ID used
 				
 				#If a key was pressed on the keypad
@@ -102,14 +118,15 @@ class SmartDoorLockSystem:
 							if (self.entered_pin[:-1] == self.correct_pin):
 								#TODO add LED Logic
 								self.doorLatch.unlockDoor()
-								self.lcd.setText("Access Granted", 2)
+								self.lcd.setText("ACCESS GRANTED", 2)
 								time.sleep(3)
 								self.doorLatch.lockDoor()
 								self.entered_pin = ""
 								self.keypad.lastKeyPressed = ""
 							#If the user entered the incorrect pin
 							else:
-								self.lcd.setText("Access Denied", 2)
+								self.lcd.setText("ACCESS DENIED", 2)
+								self.database.logFailedAccess()
 								self.entered_pin = ""
 								self.keypad.lastKeyPressed = ""
 						#If the user entered pin is longer than the correct pin
@@ -131,24 +148,35 @@ class SmartDoorLockSystem:
 				#If the physical unlock button is pressed
 				if (Button.isUnlockButtonPressed() and (self.doorLatch.status == "LOCKED")):
 					self.doorLatch.unlockDoor()
-					self.lcd.setText("Access Granted", 1)
+					self.lcd.setText("DOOR UNLOCKED", 1)
 					self.entered_pin = ""
 					self.keypad.lastKeyPressed = ""		
 
 				#If the physical lock button is pressed
 				if (Button.isLockButtonPressed() and (self.doorLatch.status == "UNLOCKED")):
 					self.doorLatch.lockDoor()
+					self.lcd.setText("DOOR LOCKED", 1)
 					self.entered_pin = ""
 					self.keypad.lastKeyPressed = ""	
 
 
 				self.rfidReader.ser.flushInput()
 				self.busy = False
+				
+				if (self.masterMode):
+					self.lcd.setText('MASTER MODE')
+
+				self.updateDoorStatusInApp()
 
 
 if __name__ == '__main__':
-	#Initialize the Lock System and start running
-	lock = SmartDoorLockSystem()
-	lock.main()
+	try:
+		#Initialize the Lock System and start running
+		lock = SmartDoorLockSystem()
+		lock.main()
 
-	GPIO.cleanup()
+	finally:
+		pass
+		#lock.lcd.setText('')
+		#lock.database.mydb.close()
+		#GPIO.cleanup()
