@@ -1,46 +1,34 @@
 #!/usr/bin/python
 
-#TODO Remove unused modules
-import serial, string, time, sqlite3, socket
-from picamera import PiCamera
+import time, socket
 from threading import Thread
-#import MySQLdb
+from Database import Database
 from Keypad import Keypad
 from RFIDReader import RFIDReader
 from LCD import LCD
 from DoorLatch import DoorLatch
 from UDP import UDP
 from Button import Button
-from Mock import Mock
-from random import randint
 
 class SmartDoorLockSystem:
 	''' Smart Door Lock System Logic '''
 	def __init__(self):
 		''' Initialization code '''
-		#TODO Remove Test Code
-		self.testing = False
 		self.busy = False
+		self.masterMode = False
 
-		#If not in debug mode, initialize real hardware
-		if not self.testing:
-			self.rfidReader = RFIDReader()
-			self.keypad = Keypad()
-			self.lcd = LCD()
-			self.doorLatch = DoorLatch()
-		#If in debug mode, initialize Mock hardware
-		else:
-			self.rfidReader = Mock.RFIDReader()
-			self.keypad = Mock.Keypad()
-			self.lcd = Mock.LCD()
-			self.doorLatch = Mock.DoorLatch()
-		
+		#Initialize system components
+		self.rfidReader = RFIDReader()
+		self.keypad = Keypad()
+		self.lcd = LCD()
+		self.doorLatch = DoorLatch()
+		self.database = Database()
+
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self.server_address = ('192.168.43.206', 8888)
 		self.socket.bind(self.server_address)
 		
-		self.dbName = "allowedtags.db"
-		self.correct_pin = "1234" #TODO get pin from database, instead of hardcoding
+		self.correct_pin = self.database.getCorrectPin()
 		self.entered_pin = ""
 
 
@@ -66,28 +54,34 @@ class SmartDoorLockSystem:
 				
 				#If the tagID returned was nothing (no tag was scanned)
 				if (tagID[0] != ""): #tagID is a tuple
-					
 					self.busy = True
-	
-					#Connect to the database
-					#TODO Move to initialization code
-					conn = sqlite3.connect('/home/pi/Desktop/allowedtags.db')
-					c = conn.cursor()
-					
-					#Search the database for the scanned tagID
-					c.execute('SELECT * FROM  allowedtags WHERE tagID=?',tagID)
-					
+					print(tagID[0])
+
 					#TODO Add logic for Master card
+					if (self.database.isMasterTag(tagID[0])):
+						if (self.masterMode):
+							self.lcd.setText('MASTER MODE')
+							self.masterMode = False
+						else:
+							self.lcd.setText('')
+							self.masterMode = True
 					
-					#If the tagID was found in the database
-					if c.fetchone():
-						self.doorLatch.unlockDoor()
-						self.lcd.setText('ACCESS GRANTED', 2)
-						time.sleep(3)
-						self.doorLatch.lockDoor()
 					else:
-						self.lcd.setText('ACCESS DENIED', 2)
-						#TODO Log attempted access + time + RFID tag ID used
+						if (self.masterMode):
+							if (self.database.isTagInDatabase(tagID[0])):
+								removeTagFromDatabase(tagID[0])
+							else:
+								addTagToDatabase(tagID[0])
+						else:
+							#If a NORMAL tag was scanned and was found in the database
+							if self.database.isTagInDatabase(tagID[0]):
+								self.doorLatch.unlockDoor()
+								self.lcd.setText('ACCESS GRANTED', 2)
+								time.sleep(3)
+								self.doorLatch.lockDoor()
+							else:
+								self.lcd.setText('ACCESS DENIED', 2)
+								#TODO Log attempted access + time + RFID tag ID used
 				
 				#If a key was pressed on the keypad
 				if (self.keypad.lastKeyPressed != ""):
@@ -108,9 +102,8 @@ class SmartDoorLockSystem:
 							if (self.entered_pin[:-1] == self.correct_pin):
 								#TODO add LED Logic
 								self.doorLatch.unlockDoor()
-								self.lcd.setText("Access Granted", 1)
-								#self.lcd.setText('Door Unlocked', 1)
-								time.sleep(2)
+								self.lcd.setText("Access Granted", 2)
+								time.sleep(3)
 								self.doorLatch.lockDoor()
 								self.entered_pin = ""
 								self.keypad.lastKeyPressed = ""
