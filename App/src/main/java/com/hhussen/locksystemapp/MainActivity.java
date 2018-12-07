@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-/* Implemented, not working -> Would print the doorState in a textView
+/* Partially implemented, not working -> Would print the doorState in a textView
     public void getDoorState(String message) {
         try {
             String target_address = "192.168.43.206";
@@ -93,13 +93,15 @@ public class MainActivity extends AppCompatActivity {
             DatagramPacket packet = new DatagramPacket(sending, sending.length,
                     address, port);
 
-            // Create a datagram socket, send the packet through it, close it.
+            // Create a datagram socket, receive the packet through it, close it.
             DatagramSocket dsocket = new DatagramSocket();
-            dsocket.send(packet);
+            dsocket.receive(packet);
             dsocket.close();
         } catch (Exception e) {
             System.err.println(e);
         }
+        //Set textView to received data
+        //.....
     }
 */
 }
