@@ -37,7 +37,7 @@ class Button(object):
 	@staticmethod
 	def isLockButtonPressed():
 		"""
-		Unlock the Door Latch
+		Lock the Door Latch
 
 		Parameters
 	    	----------
