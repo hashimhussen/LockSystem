@@ -18,4 +18,3 @@ class TestRFIDReader():
 if __name__ == '__main__':
 	test = TestRFIDReader()
 	test.main()
-t
