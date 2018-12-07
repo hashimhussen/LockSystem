@@ -79,7 +79,7 @@ class SmartDoorLockSystem:
 		#Infinite Loop
 		while True:
 			#
-			# RFID LOGIC LOGIC
+			# RFID LOGIC
 			#
 			if (self.busy != True): #self.busy variable is needed to prevent the logic loop from breaking
 				#Scan for an RFID card every iteration
